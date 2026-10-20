@@ -1,50 +1,54 @@
 import json
+import os
 import re
 import time
+import webbrowser
 from playwright.sync_api import sync_playwright
 
-user_data_dir = "./sesion_instagram"
+user_data_dir = "./sesion_instagram"  # Carpeta para guardar las cookies y sesión
 PERFIL_URL = "https://www.instagram.com/villacis_angeles/?hl=es"
 
-print(f"Iniciando extracción con parsing exacto por Regex: {PERFIL_URL}")
+print(f"Iniciando extracción optimizada: {PERFIL_URL}")
 
 with sync_playwright() as p:
     browser_context = p.chromium.launch_persistent_context(
-        user_data_dir,
-        headless=False,
-        viewport={"width": 1280, "height": 900}
+        user_data_dir, headless=False, viewport={"width": 1280, "height": 900}
     )
-    
+
     page = browser_context.new_page()
-    page.goto(PERFIL_URL)
-    
-    # Esperamos a que cargue completamente
-    page.wait_for_timeout(5000)
-    
-    # 1. Obtenemos el texto Meta de la cabecera
+    page.goto(PERFIL_URL, timeout=60000, wait_until="domcontentloaded")
+
+    # Esperamos a que cargue la interfaz inicial
+    page.wait_for_timeout(4000)
+
+    # ==========================================
+    # 1. EXTRACCIÓN DE METADATOS Y ESTADÍSTICAS
+    # ==========================================
     meta_description = ""
     try:
         meta_element = page.locator("meta[property='og:description']").first
         if not meta_element.is_visible():
             meta_element = page.locator("meta[name='description']").first
-        
+
         meta_description = meta_element.get_attribute("content") or ""
     except Exception as e:
         print(f"Aviso en meta description: {e}")
-        
-    print(f"Texto Meta capturado: '{meta_description}'")
-    
-    # Extraemos los números usando Regex para que encajen exacto en su campo
+
     seguidores = "No detectado"
     seguidos = "No detectado"
     publicaciones_total = "No detectado"
-    
+
     if meta_description:
-        # Busca patrones tipo: "336 seguidores", "127 seguidos", "27 publicaciones"
-        match_seguidores = re.search(r"([\d.,KkMm]+)\s+seguidores", meta_description, re.IGNORECASE)
-        match_seguidos = re.search(r"([\d.,KkMm]+)\s+seguidos", meta_description, re.IGNORECASE)
-        match_posts = re.search(r"([\d.,KkMm]+)\s+publicaciones", meta_description, re.IGNORECASE)
-        
+        match_seguidores = re.search(
+            r"([\d.,KkMm]+)\s+seguidores", meta_description, re.IGNORECASE
+        )
+        match_seguidos = re.search(
+            r"([\d.,KkMm]+)\s+seguidos", meta_description, re.IGNORECASE
+        )
+        match_posts = re.search(
+            r"([\d.,KkMm]+)\s+publicaciones", meta_description, re.IGNORECASE
+        )
+
         if match_seguidores:
             seguidores = match_seguidores.group(1)
         if match_seguidos:
@@ -52,43 +56,94 @@ with sync_playwright() as p:
         if match_posts:
             publicaciones_total = match_posts.group(1)
 
-    # 2. Extraer Biografía real de la cabecera
+    # ==========================================
+    # 2. EXTRACCIÓN DE BIOGRAFÍA
+    # ==========================================
     biografia = "No disponible"
     try:
         bio_element = page.locator("header section div._ap3a span").first
         if bio_element.is_visible():
             biografia = bio_element.inner_text()
-        else:
-            # Si no está en el selector tradicional, buscamos el bloque del perfil
-            biografia = "Angeles Villacis"
     except Exception as e:
         print(f"Aviso en biografía: {e}")
 
-    # 3. Extracción de Publicaciones (al menos 25)
-    print("Recolectando publicaciones mediante scroll...")
+    # ==========================================
+    # 3. RECOLECCIÓN DE URLS DE PUBLICACIONES (OBJETIVO: 25)
+    # ==========================================
+    print("\nRecolectando enlaces de publicaciones mediante scroll...")
     publicaciones_links = set()
     intentos_sin_nuevos = 0
-    
-    while len(publicaciones_links) < 25 and intentos_sin_nuevos < 5:
+
+    while len(publicaciones_links) < 25 and intentos_sin_nuevos < 6:
         links = page.locator("a[href*='/p/']").all()
         cantidad_anterior = len(publicaciones_links)
-        
+
         for link in links:
             href = link.get_attribute("href")
             if href:
                 publicaciones_links.add(href)
-                
+
         if len(publicaciones_links) == cantidad_anterior:
             intentos_sin_nuevos += 1
         else:
             intentos_sin_nuevos = 0
-            
+
         page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(2.5)
 
-    lista_publicaciones = list(publicaciones_links)[:25]
-    
-    # Estructura limpia y perfectamente ordenada
+    lista_links = list(publicaciones_links)[:25]
+
+    # ==========================================
+    # 4. INSPECCIÓN PROFUNDA DE CADA POST (LIKES)
+    # ==========================================
+    print(f"\nAnalizando detalles de {len(lista_links)} publicaciones...")
+    detalle_publicaciones = []
+
+    for idx, link in enumerate(lista_links, 1):
+        url_post = (
+            link if link.startswith("http") else f"https://www.instagram.com{link}"
+        )
+        print(f"  [{idx}/{len(lista_links)}] Procesando: {url_post}")
+
+        try:
+            page.goto(url_post, timeout=30000, wait_until="domcontentloaded")
+            time.sleep(2)
+
+            meta_post = page.locator("meta[property='og:description']").first
+            text_post = meta_post.get_attribute("content") if meta_post else ""
+
+            likes = "No detectado"
+            comentarios = "No detectado"
+
+            match_likes = re.search(
+                r"([\d.,KkMm]+)\s+(likes|me gusta)", text_post, re.IGNORECASE
+            )
+            match_comments = re.search(
+                r"([\d.,KkMm]+)\s+(comments|comentarios)", text_post, re.IGNORECASE
+            )
+
+            if match_likes:
+                likes = match_likes.group(1)
+            if match_comments:
+                comentarios = match_comments.group(1)
+
+            detalle_publicaciones.append({
+                "url": url_post,
+                "likes": likes,
+                "comentarios": comentarios,
+                "resumen_meta": text_post,
+            })
+        except Exception as err:
+            print(f"    Error al inspeccionar {url_post}: {err}")
+            detalle_publicaciones.append({"url": url_post, "error": str(err)})
+
+    # Retornamos al perfil principal
+    page.goto(PERFIL_URL, timeout=60000, wait_until="domcontentloaded")
+    time.sleep(3)
+
+    # ==========================================
+    # 5. ESTRUCTURA FINAL Y GUARDADO EN JSON Y JS
+    # ==========================================
     datos_extraidos = {
         "perfil": PERFIL_URL,
         "biografia": biografia,
@@ -96,17 +151,31 @@ with sync_playwright() as p:
             "seguidores": seguidores,
             "seguidos": seguidos,
             "total_publicaciones_perfil": publicaciones_total,
-            "resumen_meta_original": meta_description
+            "resumen_meta_original": meta_description,
         },
-        "total_publicaciones_extraidas": len(lista_publicaciones),
-        "publicaciones": lista_publicaciones
+        "total_publicaciones_analizadas": len(detalle_publicaciones),
+        "publicaciones_detalle": detalle_publicaciones,
     }
-    
+
+    # Guardado en JSON
     archivo_json = "datos.json"
     with open(archivo_json, "w", encoding="utf-8") as f:
         json.dump(datos_extraidos, f, ensure_ascii=False, indent=4)
-        
-    print(f"\n¡Perfecto! El archivo '{archivo_json}' quedó ordenado con éxito.")
-    
+
+    # Guardado directo en JS (evita bloqueos de navegador local)
+    archivo_js = "datos.js"
+    with open(archivo_js, "w", encoding="utf-8") as f:
+        f.write(f"const datosInstagram = {json.dumps(datos_extraidos, ensure_ascii=False, indent=4)};")
+
+    print(f"\n¡Proceso completado con éxito! Archivos '{archivo_json}' y '{archivo_js}' generados.")
+
     input("👉 Presiona ENTER en la terminal para finalizar...")
     browser_context.close()
+
+    # Apertura automática del panel web si existe index.html
+    if os.path.exists("index.html"):
+        print("Abriendo tu panel web (index.html)...")
+        ruta_html = os.path.abspath("index.html")
+        webbrowser.open(f"file://{ruta_html}")
+
+    print("¡Todo listo!")

@@ -3,161 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análisis de Perfil - Instagram Scraper</title>
+    <title>Dashboard de Perfil - Instagram Scraper</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #fafafa;
-            color: #262626;
-            padding: 30px 15px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 30px;
+            color: #1c1e21;
         }
-        .card {
-            max-width: 750px;
+        .container {
+            max-width: 950px;
             margin: 0 auto;
             background: #ffffff;
-            border: 1px solid #dbdbdb;
+            padding: 25px 35px;
             border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        }
-        .header {
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 20px;
-            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
         }
         h1 {
-            font-size: 24px;
             color: #d62976;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
+            font-size: 28px;
         }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .stat-card {
-            background: #fafafa;
-            border: 1px solid #e6e6e6;
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-        }
-        .stat-card span {
-            display: block;
-            font-size: 22px;
-            font-weight: bold;
-            color: #262626;
-        }
-        .stat-card label {
-            font-size: 13px;
-            color: #8e8e8e;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .bio-section {
-            background: #fdf2f8;
-            border-left: 4px solid #d62976;
-            padding: 15px 20px;
-            border-radius: 6px;
-            margin-bottom: 25px;
-        }
-        .posts-section h2 {
-            font-size: 18px;
-            margin-bottom: 15px;
-        }
-        .posts-list {
-            list-style: none;
-            max-height: 350px;
-            overflow-y: auto;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            padding: 10px;
-        }
-        .posts-list li {
-            padding: 10px 12px;
-            border-bottom: 1px solid #f0f0f0;
-            font-size: 14px;
-            word-break: break-all;
-        }
-        .posts-list li:last-child {
-            border-bottom: none;
-        }
-        .posts-list a {
+        .profile-link {
             color: #0095f6;
             text-decoration: none;
+            font-weight: 600;
         }
-        .posts-list a:hover {
+        .profile-link:hover {
             text-decoration: underline;
+        }
+        .stats-box {
+            display: flex;
+            justify-content: space-around;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 25px 0;
+            border: 1px solid #e1e4e8;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-item p {
+            margin: 0;
+            font-size: 14px;
+            color: #65676b;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .stat-item span {
+            font-size: 24px;
+            font-weight: bold;
+            color: #111;
+        }
+        .bio {
+            background-color: #f8f9fa;
+            border-left: 4px solid #d62976;
+            padding: 12px 15px;
+            border-radius: 4px;
+            color: #4b4f56;
+            font-size: 15px;
+            margin: 15px 0;
+        }
+        h2 {
+            border-bottom: 2px solid #f0f2f5;
+            padding-bottom: 10px;
+            color: #333;
+            margin-top: 30px;
+        }
+        .grid-posts {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .post-card {
+            border: 1px solid #e1e4e8;
+            border-radius: 10px;
+            padding: 16px;
+            background: #ffffff;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .post-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+        }
+        .post-header {
+            font-weight: bold;
+            color: #d62976;
+            margin-bottom: 10px;
+            font-size: 15px;
+        }
+        .metrics {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .post-caption {
+            font-size: 13px;
+            color: #555;
+            margin: 10px 0;
+            line-height: 1.4;
+        }
+        .post-card a {
+            display: inline-block;
+            margin-top: 8px;
+            color: #0095f6;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <div class="header">
-            <h1>📊 Instagram Web Scraper</h1>
-            <p><strong>Perfil Objetivo:</strong> <a id="link-perfil" href="#" target="_blank">Cargando...</a></p>
-        </div>
+    <div class="container">
+        <h1>Dashboard de Perfil</h1>
+        <p><strong>Perfil analizado:</strong> <a id="perfil-url" class="profile-link" href="#" target="_blank">Cargando...</a></p>
+        <div class="bio" id="biografia">Cargando datos...</div>
 
-        <div class="bio-section">
-            <h3 style="font-size: 14px; color: #8e8e8e; margin-bottom: 5px;">BIOGRAFÍA</h3>
-            <p id="biografia" style="font-weight: 500;">Cargando...</p>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <span id="stat-posts">0</span>
-                <label>Publicaciones</label>
+        <div class="stats-box">
+            <div class="stat-item">
+                <p>Seguidores</p>
+                <span id="val-seguidores">-</span>
             </div>
-            <div class="stat-card">
-                <span id="stat-followers">0</span>
-                <label>Seguidores</label>
+            <div class="stat-item">
+                <p>Seguidos</p>
+                <span id="val-seguidos">-</span>
             </div>
-            <div class="stat-card">
-                <span id="stat-following">0</span>
-                <label>Seguidos</label>
+            <div class="stat-item">
+                <p>Publicaciones Analizadas</p>
+                <span id="val-total-posts">-</span>
             </div>
         </div>
 
-        <div class="posts-section">
-            <h2>URLs de Publicaciones Extramadas (<span id="total-extraido">0</span>)</h2>
-            <ul id="lista-publicaciones" class="posts-list">
-                <li>Cargando enlaces...</li>
-            </ul>
-        </div>
+        <h2>Publicaciones Analizadas</h2>
+        <div class="grid-posts" id="posts-container"></div>
     </div>
 
+    <!-- Carga del archivo generado por Python -->
+    <script src="datos.js"></script>
+
     <script>
-        fetch('datos.json')
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('link-perfil').href = data.perfil;
-                document.getElementById('link-perfil').innerText = data.perfil;
-                document.getElementById('biografia').innerText = data.biografia || 'Sin biografía';
-                
-                document.getElementById('stat-posts').innerText = data.estadisticas_perfil.total_publicaciones_perfil || '0';
-                document.getElementById('stat-followers').innerText = data.estadisticas_perfil.seguidores || '0';
-                document.getElementById('stat-following').innerText = data.estadisticas_perfil.seguidos || '0';
-                
-                document.getElementById('total-extraido').innerText = data.total_publicaciones_extraidas || '0';
-                
-                const ul = document.getElementById('lista-publicaciones');
-                ul.innerHTML = '';
-                
-                data.publicaciones.forEach(path => {
-                    const li = document.createElement('li');
-                    const fullUrl = path.startsWith('http') ? path : `https://www.instagram.com${path}`;
-                    li.innerHTML = `<a href="${fullUrl}" target="_blank">${fullUrl}</a>`;
-                    ul.appendChild(li);
-                });
-            })
-            .catch(err => console.error('Error al cargar datos.json:', err));
+        function renderizar() {
+            if (typeof datosInstagram === 'undefined') {
+                document.getElementById('posts-container').innerHTML = 
+                    '<p style="color:red; font-weight:bold;">Ejecuta main.py para generar el archivo datos.js</p>';
+                return;
+            }
+
+            const data = datosInstagram;
+
+            document.getElementById('perfil-url').href = data.perfil;
+            document.getElementById('perfil-url').innerText = data.perfil;
+            document.getElementById('biografia').innerText = data.estadisticas_perfil.resumen_meta_original || "Sin biografía disponible";
+
+            document.getElementById('val-seguidores').innerText = data.estadisticas_perfil.seguidores;
+            document.getElementById('val-seguidos').innerText = data.estadisticas_perfil.seguidos;
+            document.getElementById('val-total-posts').innerText = data.total_publicaciones_analizadas;
+
+            const container = document.getElementById('posts-container');
+            container.innerHTML = '';
+
+            data.publicaciones_detalle.forEach((post, index) => {
+                const card = document.createElement('div');
+                card.className = 'post-card';
+                card.innerHTML = `
+                    <div class="post-header">Publicación #${index + 1}</div>
+                    <div class="metrics">
+                        <span>❤️ <strong>${post.likes}</strong> Likes</span>
+                        <span>💬 <strong>${post.comentarios}</strong> Comentarios</span>
+                    </div>
+                    <div class="post-caption">${post.resumen_meta || 'Sin descripción'}</div>
+                    <a href="${post.url}" target="_blank">Ver en Instagram ↗</a>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        renderizar();
     </script>
+
 </body>
 </html>

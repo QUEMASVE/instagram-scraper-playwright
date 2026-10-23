@@ -5,7 +5,7 @@ import time
 import webbrowser
 from playwright.sync_api import sync_playwright
 
-user_data_dir = "./sesion_instagram"  # Carpeta para guardar las cookies y sesión
+user_data_dir = "./sesion_instagram"  # Carpeta de sesión persistente
 PERFIL_URL = "https://www.instagram.com/villacis_angeles/?hl=es"
 
 print(f"Iniciando extracción optimizada: {PERFIL_URL}")
@@ -17,8 +17,6 @@ with sync_playwright() as p:
 
     page = browser_context.new_page()
     page.goto(PERFIL_URL, timeout=60000, wait_until="domcontentloaded")
-
-    # Esperamos a que cargue la interfaz inicial
     page.wait_for_timeout(4000)
 
     # ==========================================
@@ -39,15 +37,9 @@ with sync_playwright() as p:
     publicaciones_total = "No detectado"
 
     if meta_description:
-        match_seguidores = re.search(
-            r"([\d.,KkMm]+)\s+seguidores", meta_description, re.IGNORECASE
-        )
-        match_seguidos = re.search(
-            r"([\d.,KkMm]+)\s+seguidos", meta_description, re.IGNORECASE
-        )
-        match_posts = re.search(
-            r"([\d.,KkMm]+)\s+publicaciones", meta_description, re.IGNORECASE
-        )
+        match_seguidores = re.search(r"([\d.,KkMm]+)\s+seguidores", meta_description, re.IGNORECASE)
+        match_seguidos = re.search(r"([\d.,KkMm]+)\s+seguidos", meta_description, re.IGNORECASE)
+        match_posts = re.search(r"([\d.,KkMm]+)\s+publicaciones", meta_description, re.IGNORECASE)
 
         if match_seguidores:
             seguidores = match_seguidores.group(1)
@@ -68,7 +60,7 @@ with sync_playwright() as p:
         print(f"Aviso en biografía: {e}")
 
     # ==========================================
-    # 3. RECOLECCIÓN DE URLS DE PUBLICACIONES (OBJETIVO: 25)
+    # 3. RECOLECCIÓN DE URLS DE PUBLICACIONES (HASTA 25)
     # ==========================================
     print("\nRecolectando enlaces de publicaciones mediante scroll...")
     publicaciones_links = set()
@@ -94,44 +86,73 @@ with sync_playwright() as p:
     lista_links = list(publicaciones_links)[:25]
 
     # ==========================================
-    # 4. INSPECCIÓN PROFUNDA DE CADA POST (LIKES)
+    # 4. INSPECCIÓN PROFUNDA DE CADA POST
     # ==========================================
     print(f"\nAnalizando detalles de {len(lista_links)} publicaciones...")
     detalle_publicaciones = []
 
     for idx, link in enumerate(lista_links, 1):
-        url_post = (
-            link if link.startswith("http") else f"https://www.instagram.com{link}"
-        )
-        print(f"  [{idx}/{len(lista_links)}] Procesando: {url_post}")
+        url_post = link if link.startswith("http") else f"https://www.instagram.com{link}"
+        print(f"   [{idx}/{len(lista_links)}] Procesando: {url_post}")
 
         try:
             page.goto(url_post, timeout=30000, wait_until="domcontentloaded")
             time.sleep(2)
 
+            # --- Conteo de Likes y Comentarios ---
             meta_post = page.locator("meta[property='og:description']").first
             text_post = meta_post.get_attribute("content") if meta_post else ""
 
             likes = "No detectado"
             comentarios = "No detectado"
 
-            match_likes = re.search(
-                r"([\d.,KkMm]+)\s+(likes|me gusta)", text_post, re.IGNORECASE
-            )
-            match_comments = re.search(
-                r"([\d.,KkMm]+)\s+(comments|comentarios)", text_post, re.IGNORECASE
-            )
+            match_likes = re.search(r"([\d.,KkMm]+)\s+(likes|me gusta)", text_post, re.IGNORECASE)
+            match_comments = re.search(r"([\d.,KkMm]+)\s+(comments|comentarios)", text_post, re.IGNORECASE)
 
             if match_likes:
                 likes = match_likes.group(1)
             if match_comments:
                 comentarios = match_comments.group(1)
 
+            # --- Fecha exacta de la publicación ---
+            fecha_publicacion = "No disponible"
+            try:
+                time_elem = page.locator("time._a9ze, time[datetime]").first
+                if time_elem.is_visible():
+                    fecha_publicacion = time_elem.get_attribute("datetime") or time_elem.inner_text()
+            except Exception:
+                pass
+
+            # --- Descripción limpia del post ---
+            descripcion = ""
+            try:
+                caption_elem = page.locator("h1._ap3a, div._a9zs span").first
+                if caption_elem.is_visible():
+                    descripcion = caption_elem.inner_text().strip()
+            except Exception:
+                pass
+
+            # --- Tipo de contenido (Imagen, Vídeo, Carrusel) ---
+            tipo_post = "Imagen"
+            try:
+                if page.locator("video").count() > 0 or "reel" in url_post.lower():
+                    tipo_post = "Vídeo / Reel"
+                elif page.locator("button[aria-label*='Siguiente'], button[aria-label*='Next']").count() > 0:
+                    tipo_post = "Carrusel"
+            except Exception:
+                pass
+
+            tiene_texto = len(descripcion) > 0
+
             detalle_publicaciones.append({
                 "url": url_post,
+                "tipo_post": tipo_post,
+                "fecha_publicacion": fecha_publicacion,
                 "likes": likes,
                 "comentarios": comentarios,
-                "resumen_meta": text_post,
+                "descripcion": descripcion,
+                "tiene_texto": tiene_texto,
+                "resumen_meta": text_post
             })
         except Exception as err:
             print(f"    Error al inspeccionar {url_post}: {err}")
@@ -139,10 +160,10 @@ with sync_playwright() as p:
 
     # Retornamos al perfil principal
     page.goto(PERFIL_URL, timeout=60000, wait_until="domcontentloaded")
-    time.sleep(3)
+    time.sleep(2)
 
     # ==========================================
-    # 5. ESTRUCTURA FINAL Y GUARDADO EN JSON Y JS
+    # 5. ESTRUCTURA Y GUARDADO EN JSON Y JS
     # ==========================================
     datos_extraidos = {
         "perfil": PERFIL_URL,
@@ -151,10 +172,10 @@ with sync_playwright() as p:
             "seguidores": seguidores,
             "seguidos": seguidos,
             "total_publicaciones_perfil": publicaciones_total,
-            "resumen_meta_original": meta_description,
+            "resumen_meta_original": meta_description
         },
         "total_publicaciones_analizadas": len(detalle_publicaciones),
-        "publicaciones_detalle": detalle_publicaciones,
+        "publicaciones_detalle": detalle_publicaciones
     }
 
     # Guardado en JSON
@@ -162,20 +183,21 @@ with sync_playwright() as p:
     with open(archivo_json, "w", encoding="utf-8") as f:
         json.dump(datos_extraidos, f, ensure_ascii=False, indent=4)
 
-    # Guardado directo en JS (evita bloqueos de navegador local)
+    # Guardado directo en JS
     archivo_js = "datos.js"
     with open(archivo_js, "w", encoding="utf-8") as f:
         f.write(f"const datosInstagram = {json.dumps(datos_extraidos, ensure_ascii=False, indent=4)};")
 
     print(f"\n¡Proceso completado con éxito! Archivos '{archivo_json}' y '{archivo_js}' generados.")
-
-    input("👉 Presiona ENTER en la terminal para finalizar...")
     browser_context.close()
 
-    # Apertura automática del panel web si existe index.html
-    if os.path.exists("index.html"):
-        print("Abriendo tu panel web (index.html)...")
-        ruta_html = os.path.abspath("index.html")
-        webbrowser.open(f"file://{ruta_html}")
+# ==========================================
+# 6. LANZAR SERVIDOR WEB INTERACTIVO
+# ==========================================
+print("\n🌐 Abriendo tu panel web interactivo en http://127.0.0.1:5000 ...")
+webbrowser.open("http://127.0.0.1:5000")
 
-    print("¡Todo listo!")
+try:
+    os.system("python servidor.py")
+except KeyboardInterrupt:
+    print("\n👋 Servidor detenido por el usuario.")

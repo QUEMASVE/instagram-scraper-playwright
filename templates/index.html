@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Extracción - Instagram</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #833ab4; text-align: center; margin-bottom: 5px; }
+        p.subtitle { text-align: center; color: #666; margin-bottom: 25px; }
+        .stats-card { background: #f8f9fa; border-left: 4px solid #833ab4; padding: 15px; border-radius: 6px; margin-bottom: 25px; }
+        .btn-analizar { display: block; width: 100%; padding: 16px; background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; transition: transform 0.2s, opacity 0.2s; }
+        .btn-analizar:hover { opacity: 0.95; transform: translateY(-2px); }
+        .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 25px; }
+        .post-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; font-size: 0.9rem; }
+        .post-meta { font-size: 0.75rem; color: #888; margin-top: 8px; }
+        #loading { display: none; text-align: center; margin-top: 20px; font-weight: bold; color: #cc2366; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Datos Extraídos de Instagram</h1>
+        <p class="subtitle">Perfil: <strong>{{ datos.perfil }}</strong></p>
+
+        <div class="stats-card">
+            <p><strong>Biografía:</strong> {{ datos.biografia }}</p>
+            <p><strong>Total de publicaciones procesadas:</strong> {{ datos.publicaciones_detalle|length }}</p>
+        </div>
+
+        <!-- BOTÓN PRINCIPAL PARA ACTIVAR IA -->
+        <a href="/analizar" class="btn-analizar" onclick="mostrarCargando()">
+            🧠 Generar Análisis de Personalidad Big Five (IA)
+        </a>
+
+        <div id="loading">
+            ⏳ Procesando análisis lingüístico con Groq... Por favor espera unos segundos.
+        </div>
+
+        <h3>Publicaciones Recientes</h3>
+        <div class="posts-grid">
+            {% for post in datos.publicaciones_detalle %}
+            <div class="post-card">
+                <p><strong>#{{ loop.index }}</strong> {{ post.descripcion or post.resumen_meta or 'Sin descripción' }}</p>
+                <div class="post-meta">
+                    ❤️ {{ post.likes or '0' }} likes | 📅 {{ post.fecha or 'N/A' }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        function mostrarCargando() {
+            document.getElementById('loading').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
-# 📊 Instagram Profile Scraper & Web Dashboard
+# 📊 Instagram Profile Scraper & Web Dashboard (Big Five IA)
 
-Proyecto universitario de ingeniería para la extracción automatizada de métricas, estadísticas avanzadas y metadatos de perfiles de Instagram utilizando **Python**, **Playwright** y **Regex**, complementado con un panel de visualización web interactivo.
+Proyecto universitario de ingeniería para la extracción automatizada de métricas, estadísticas avanzadas y metadatos de perfiles de Instagram utilizando **Python**, **Playwright** y **Regex**, complementado con un servidor web local en **Flask** y análisis exploratorio de personalidad mediante **IA (Groq API / Big Five)**.
 
 ---
 
@@ -9,17 +9,19 @@ Proyecto universitario de ingeniería para la extracción automatizada de métri
 - **Sesión Persistente:** Reutiliza cookies y estado de sesión local (`sesion_instagram`) mediante `launch_persistent_context` para navegar sin necesidad de autenticarse repetidamente.
 - **Parsing Exacto con Regex:** Extrae métricas exactas (seguidores, seguidos, publicaciones totales) utilizando expresiones regulares sobre metadatos Open Graph (`og:description`).
 - **Inspección Profunda de Publicaciones:** Analiza automáticamente hasta 25 publicaciones individuales para capturar la cantidad exacta de **Likes**, **Comentarios**, descripciones y fechas de publicación.
-- **Doble Persistencia de Datos:** Genera archivos `datos.json` para estructuras de datos y `datos.js` para omitir las restricciones de seguridad local (CORS / `file://`) en el navegador.
-- **Dashboard Web Interactivo (`index.html`):** Interfaz estilizada en HTML5/CSS3/JS que renderiza automáticamente las tarjetas de publicaciones y métricas del perfil al finalizar la ejecución.
+- **Arquitectura Web Interactiva (Flask):** Servidor local integrado que conecta la extracción con una interfaz dinámica utilizando plantillas HTML y Jinja2.
+- **Análisis Exploratorio de Personalidad (Big Five):** Integración con la API de Groq para procesar lingüísticamente los textos del perfil y generar un informe estructurado en Markdown y HTML.
+- **Seguridad y Privacidad:** Gestión de credenciales sensibles mediante variables de entorno (`.env`), protegiendo la clave de API contra exposiciones públicas en control de versiones.
 
 ---
 
 ## 🛠️ Tecnologías Utilizadas
 
 - **Lenguaje Principal:** Python 3.x
+- **Backend / Servidor:** Flask, Python-dotenv
+- **Inteligencia Artificial:** Groq API (Modelos de lenguaje avanzados)
 - **Automatización Web:** Playwright (Python API)
-- **Procesamiento de Texto:** Expresiones Regulares (`re`)
-- **Frontend / Dashboard:** HTML5, CSS3, JavaScript (ES6)
+- **Frontend:** HTML5, CSS3, Jinja2 Templates
 - **Control de Versiones:** Git & GitHub
 
 ---
@@ -28,13 +30,11 @@ Proyecto universitario de ingeniería para la extracción automatizada de métri
 
 ```text
 arquitectura/
-├── sesion_instagram/    # Directorio con datos de sesión persistente (cookies)
-├── .gitignore           # Archivos y carpetas excluidas del repositorio Git
-├── datos.js             # Archivo generado para integración directa con el frontend
-├── datos.json           # Archivo generado con la data extraída en formato JSON
-├── index.html           # Panel de visualización web (Dashboard)
-├── main.py              # Script principal de automatización y scraping
-└── README.md            # Documentación del proyecto
-
-⚙️ Instrucciones de Uso
-Para poner en marcha el proyecto, simplemente instala Playwright ejecutando pip install playwright && playwright install en tu terminal y posteriormente corre el script principal con python main.py, lo cual iniciará la extracción automática de datos y abrirá de inmediato tu navegador mostrando el panel web interactivo actualizado.
+├── sesion_instagram/      # Directorio con datos de sesión persistente (cookies - Ignorado)
+├── templates/             # Vistas HTML (index.html y resultado.html)
+├── .env.example           # Plantilla de configuración de variables de entorno
+├── .gitignore             # Archivos y carpetas excluidas del repositorio Git
+├── analizador_ia.py       # Script de conexión y análisis con la API de Groq
+├── main.py                # Script principal de automatización, scraping y despliegue web
+├── servidor.py            # Servidor Flask para la interfaz interactiva local
+└── README.md              # Documentación oficial del proyecto

@@ -17,7 +17,7 @@ with sync_playwright() as p:
 
     page = browser_context.new_page()
     page.goto(PERFIL_URL, timeout=60000, wait_until="domcontentloaded")
-    page.wait_for_timeout(4000)
+    page.wait_for_timeout(5000)
 
     # ==========================================
     # 1. EXTRACCIÓN DE METADATOS Y ESTADÍSTICAS
@@ -60,6 +60,113 @@ with sync_playwright() as p:
         print(f"Aviso en biografía: {e}")
 
     # ==========================================
+    # 2.5. EXTRACCIÓN DE SEGUIDORES CON HOVER Y BÚSQUEDA DINÁMICA DE POPOVER
+    # ==========================================
+    print("\n[SEGUIDORES] Abriendo lista de seguidores...")
+    seguidores_detalle = []
+    try:
+        seguidores_trigger = page.get_by_text("seguidores", exact=False).first
+        if seguidores_trigger.is_visible():
+            seguidores_trigger.click()
+            print("  [OK] Clic realizado en el botón de seguidores.")
+            
+            page.wait_for_selector("div[role='dialog']", timeout=10000)
+            print("  [OK] Modal de seguidores desplegado.")
+            time.sleep(2)
+
+            seguidores_procesados = set()
+            intentos_sin_nuevos = 0
+
+            while len(seguidores_detalle) < 200 and intentos_sin_nuevos < 6:
+                filas_usuarios = page.locator("div[role='dialog'] a[role='link'][href^='/']").all()
+                cantidad_inicial = len(seguidores_detalle)
+
+                for link_elem in filas_usuarios:
+                    href = link_elem.get_attribute("href")
+                    if not href or href.count('/') != 2 or "/explore/" in href:
+                        continue
+                    
+                    username = href.strip('/')
+                    if username in seguidores_procesados:
+                        continue
+                    
+                    seguidores_procesados.add(username)
+
+                    pub_seg = "No detectado"
+                    foll_seg = "No detectado"
+                    foll_ing = "No detectado"
+
+                    try:
+                        link_elem.hover()
+                        # Pausa esencial para que Instagram renderice la tarjeta flotante
+                        page.wait_for_timeout(1200)
+
+                        # Búsqueda dinámica y robusta del popover en el DOM
+                        pop_text = page.evaluate("""() => {
+                            const divs = Array.from(document.querySelectorAll('div'));
+                            const popovers = divs.filter(d => {
+                                const text = d.innerText || '';
+                                return text.includes('seguidores') && text.includes('seguidos') && text.length < 400;
+                            });
+                            if (popovers.length > 0) {
+                                return popovers[popovers.length - 1].innerText;
+                            }
+                            return '';
+                        }""")
+
+                        if pop_text:
+                            m_pub = re.search(r"([\d.,KkMm]+)\s+publicaciones", pop_text, re.IGNORECASE)
+                            m_foll = re.search(r"([\d.,KkMm]+)\s+seguidores", pop_text, re.IGNORECASE)
+                            m_ing = re.search(r"([\d.,KkMm]+)\s+seguidos", pop_text, re.IGNORECASE)
+
+                            if m_pub: pub_seg = m_pub.group(1)
+                            if m_foll: foll_seg = m_foll.group(1)
+                            if m_ing: foll_ing = m_ing.group(1)
+
+                    except Exception:
+                        pass
+
+                    seguidores_detalle.append({
+                        "username": username,
+                        "url_perfil": f"https://www.instagram.com/{username}/",
+                        "estadisticas": {
+                            "publicaciones": pub_seg,
+                            "seguidores": foll_seg,
+                            "seguidos": foll_ing
+                        }
+                    })
+
+                    print(f"   + Seguidor [{len(seguidores_detalle)}]: @{username} | Pub: {pub_seg} | Seg: {foll_seg} | Seguidos: {foll_ing}")
+
+                    if len(seguidores_detalle) >= 200:
+                        break
+
+                if len(seguidores_detalle) == cantidad_inicial:
+                    intentos_sin_nuevos += 1
+                else:
+                    intentos_sin_nuevos = 0
+
+                # Scroll interno dentro del modal de seguidores
+                page.evaluate("""
+                    const dialog = document.querySelector("div[role='dialog']");
+                    if (dialog) {
+                        const scrollable = dialog.querySelector("div._a1-z, div.x1n2onr6, div._a9z6") || dialog;
+                        scrollable.scrollTop += 600;
+                    }
+                """)
+                time.sleep(2)
+
+            print(f"  [ÉXITO] Total de seguidores procesados: {len(seguidores_detalle)}")
+
+            page.keyboard.press("Escape")
+            time.sleep(1)
+
+        else:
+            print("  [AVISO] No se encontró el texto de seguidores.")
+    except Exception as e:
+        print(f"  [ERROR] Ocurrió un problema en seguidores: {e}")
+
+    # ==========================================
     # 3. RECOLECCIÓN DE URLS DE PUBLICACIONES (HASTA 25)
     # ==========================================
     print("\nRecolectando enlaces de publicaciones mediante scroll...")
@@ -99,7 +206,6 @@ with sync_playwright() as p:
             page.goto(url_post, timeout=30000, wait_until="domcontentloaded")
             time.sleep(2)
 
-            # --- Conteo de Likes y Comentarios ---
             meta_post = page.locator("meta[property='og:description']").first
             text_post = meta_post.get_attribute("content") if meta_post else ""
 
@@ -114,7 +220,6 @@ with sync_playwright() as p:
             if match_comments:
                 comentarios = match_comments.group(1)
 
-            # --- Fecha exacta de la publicación ---
             fecha_publicacion = "No disponible"
             try:
                 time_elem = page.locator("time._a9ze, time[datetime]").first
@@ -123,7 +228,6 @@ with sync_playwright() as p:
             except Exception:
                 pass
 
-            # --- Descripción limpia del post ---
             descripcion = ""
             try:
                 caption_elem = page.locator("h1._ap3a, div._a9zs span").first
@@ -132,7 +236,6 @@ with sync_playwright() as p:
             except Exception:
                 pass
 
-            # --- Tipo de contenido (Imagen, Vídeo, Carrusel) ---
             tipo_post = "Imagen"
             try:
                 if page.locator("video").count() > 0 or "reel" in url_post.lower():
@@ -158,7 +261,6 @@ with sync_playwright() as p:
             print(f"    Error al inspeccionar {url_post}: {err}")
             detalle_publicaciones.append({"url": url_post, "error": str(err)})
 
-    # Retornamos al perfil principal
     page.goto(PERFIL_URL, timeout=60000, wait_until="domcontentloaded")
     time.sleep(2)
 
@@ -174,16 +276,16 @@ with sync_playwright() as p:
             "total_publicaciones_perfil": publicaciones_total,
             "resumen_meta_original": meta_description
         },
+        "total_seguidores_analizados": len(seguidores_detalle),
+        "seguidores_detalle": seguidores_detalle,
         "total_publicaciones_analizadas": len(detalle_publicaciones),
         "publicaciones_detalle": detalle_publicaciones
     }
 
-    # Guardado en JSON
     archivo_json = "datos.json"
     with open(archivo_json, "w", encoding="utf-8") as f:
         json.dump(datos_extraidos, f, ensure_ascii=False, indent=4)
 
-    # Guardado directo en JS
     archivo_js = "datos.js"
     with open(archivo_js, "w", encoding="utf-8") as f:
         f.write(f"const datosInstagram = {json.dumps(datos_extraidos, ensure_ascii=False, indent=4)};")

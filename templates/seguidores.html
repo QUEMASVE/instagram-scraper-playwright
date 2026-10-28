@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoría y Ley de Benford - Instagram</title>
+    <!-- Incluir Chart.js para las gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f4f6f9; 
+            margin: 0; 
+            padding: 20px; 
+            color: #333; 
+        }
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+        }
+        h1 { 
+            color: #833ab4; 
+            text-align: center; 
+            margin-bottom: 5px; 
+        }
+        p.subtitle { 
+            text-align: center; 
+            color: #666; 
+            margin-bottom: 25px; 
+        }
+        .nav-back {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 15px;
+            background-color: #e9ecef;
+            color: #495057;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .nav-back:hover {
+            background-color: #dee2e6;
+        }
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .btn-benford {
+            background: linear-gradient(45deg, #11998e, #38ef7d);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        .btn-benford:hover {
+            opacity: 0.95;
+            transform: translateY(-2px);
+        }
+        .resultado-card {
+            background: #f8f9fa;
+            border-left: 6px solid {{ benford.color if benford else '#833ab4' }};
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-height: 400px;
+            margin-bottom: 30px;
+        }
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            background: #fff;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background-color: #833ab4;
+            color: white;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        .badge {
+            background-color: #e2d9f3;
+            color: #833ab4;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        a.user-link {
+            color: #0095f6;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        a.user-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="nav-back">← Volver al Dashboard Principal</a>
+        
+        <h1>👥 Auditoría y Análisis de Bots</h1>
+        <p class="subtitle">Perfiles recolectados en la red: <strong>{{ datos.seguidores_detalle|length }}</strong></p>
+
+        <!-- BARRA DE ACCIÓN / BOTÓN DE CÁLCULO -->
+        <div class="action-bar">
+            <a href="/calcular_benford" class="btn-benford">
+                📈 Aplicar y Calcular Ley de Benford
+            </a>
+            {% if benford %}
+            <div>
+                <span>Estado actual: </span>
+                <strong style="color: {{ benford.color }};">{{ benford.categoria }}</strong>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- SECCIÓN DE RESULTADOS DE BENFORD Y GRÁFICA (SI SE HA CALCULADO) -->
+        {% if benford %}
+        <div class="resultado-card">
+            <h3>📊 Resultados del Análisis de Benford</h3>
+            <p><strong>Perfiles válidos evaluados:</strong> {{ benford.total_analizados }}</p>
+            <p><strong>Desviación Media Absoluta (MAD):</strong> {{ benford.mad }}</p>
+            <p><strong>Clasificación de Autenticidad:</strong> <span style="color: {{ benford.color }}; font-weight: bold; font-size: 1.1rem;">{{ benford.categoria }}</span></p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="benfordChart"></canvas>
+        </div>
+
+        <script>
+            const ctx = document.getElementById('benfordChart').getContext('2d');
+            const realData = {{ benford.real_pct | tojson }};
+            const teoricoData = {{ benford.teorico_pct | tojson }};
+
+            const labels = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+            const realValues = labels.map(l => realData[l] || 0);
+            const teoricoValues = labels.map(l => teoricoData[l] || 0);
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(d => 'Dígito ' + d),
+                    datasets: [
+                        {
+                            label: 'Distribución Real (%)',
+                            data: realValues,
+                            backgroundColor: 'rgba(131, 58, 180, 0.7)',
+                            borderColor: 'rgba(131, 58, 180, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Ley de Benford Teórica (%)',
+                            data: teoricoValues,
+                            type: 'line',
+                            borderColor: 'rgba(56, 239, 125, 1)',
+                            backgroundColor: 'rgba(56, 239, 125, 0.2)',
+                            borderWidth: 3,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Comparación: Primeros Dígitos de Seguidores vs Ley de Benford'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Porcentaje (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        </script>
+        {% endif %}
+
+        <!-- TABLA DE SEGUIDORES -->
+        <h3>Detalle de Perfiles en la Red</h3>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Perfil de Instagram</th>
+                        <th>Publicaciones</th>
+                        <th>Seguidores</th>
+                        <th>Seguidos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for seg in datos.seguidores_detalle %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td><span class="badge">@{{ seg.username }}</span></td>
+                        <td><a href="{{ seg.url_perfil }}" target="_blank" class="user-link">Ver Perfil ↗</a></td>
+                        <td>{{ seg.estadisticas.publicaciones if seg.estadisticas is mapping else 'N/A' }}</td>
+                        <td><strong>{{ seg.estadisticas.seguidores if seg.estadisticas is mapping else 'N/A' }}</strong></td>
+                        <td>{{ seg.estadisticas.seguidos if seg.estadisticas is mapping else 'N/A' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #888; padding: 20px;">No se encontraron seguidores registrados en el archivo JSON.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
